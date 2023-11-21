@@ -7,20 +7,25 @@ type Todo = {
   id: string;
 };
 
-enum Filter {
-  Completed = 'completed',
-  Active = 'active',
-  All = 'all',
-}
+const FILTER = {
+  COMPLETED: 'Completed',
+  ACTIVE: 'Active',
+  ALL: 'All',
+} as const;
 
-enum Shift {
-  Up = 1,
-  Down = 2,
-}
+const SHIFT = {
+  UP: 'Up',
+  DOWN: 'Down',
+} as const;
+
+type ObjectValues<T> = T[keyof T];
+
+type Filter = ObjectValues<typeof FILTER>;
+type Shift = ObjectValues<typeof SHIFT>;
 
 export function App() {
   const [todoList, setTodoList] = useState<Todo[]>([]);
-  const [todoFilter, setTodoFilter] = useState<Filter>(Filter.All);
+  const [todoFilter, setTodoFilter] = useState<Filter>(FILTER.ALL);
 
   function addTodoItem(newItem: string) {
     const newTodo = {
@@ -51,9 +56,9 @@ export function App() {
   function shiftTodoItem(todo: Todo, shift: Shift) {
     const index = todoList.findIndex((t) => t.id === todo.id);
     let shiftIndex: number;
-    if (todoFilter !== Filter.All) {
+    if (todoFilter !== FILTER.ALL) {
       switch (shift) {
-        case Shift.Up:
+        case SHIFT.UP:
           shiftIndex =
             index -
             todoList
@@ -62,7 +67,7 @@ export function App() {
               .findIndex((t) => (todo.completed ? t.completed : !t.completed)) -
             1;
           break;
-        case Shift.Down:
+        case SHIFT.DOWN:
           shiftIndex =
             1 +
             index +
@@ -73,10 +78,10 @@ export function App() {
       }
     } else {
       switch (shift) {
-        case Shift.Up:
+        case SHIFT.UP:
           shiftIndex = index - 1;
           break;
-        case Shift.Down:
+        case SHIFT.DOWN:
           shiftIndex = index + 1;
           break;
       }
@@ -104,11 +109,11 @@ export function App() {
 
   function filterTodoItems(filter: Filter): Todo[] {
     switch (filter) {
-      case Filter.All:
+      case FILTER.ALL:
         return todoList;
-      case Filter.Active:
+      case FILTER.ACTIVE:
         return todoList.filter((t) => !t.completed);
-      case Filter.Completed:
+      case FILTER.COMPLETED:
         return todoList.filter((t) => t.completed);
     }
   }
@@ -141,6 +146,7 @@ export function App() {
             <TodoSummary
               clearCompleted={clearCompleted}
               setFilter={setTodoFilter}
+              currentFilter={todoFilter}
             >
               {todoList}
             </TodoSummary>
@@ -177,7 +183,7 @@ function InputBox(props: {
         onChange={(e) => setTodoItem(e.currentTarget.value)}
         value={todoItem}
         autoFocus
-        className="border-2 text-sm rounded-lg outline-none focus:ring-blue-500 focus:border-blue-500 w-full p-2.5 bg-gray-700 border-gray-600 placeholder-gray-400 text-white"
+        className="border-2 text-sm rounded-lg outline-none focus:ring-blue-500 focus:border-blue-500 w-full p-2.5 bg-gray-700 border-gray-600 hover:border-gray-500 placeholder-gray-400 text-white"
       />
     </form>
   );
@@ -194,6 +200,8 @@ function Checkmark(props: { completed: boolean; setCompleted: () => void }) {
       />
       <svg
         className="absolute w-6 h-6 fill-none stroke-white stroke-2 pointer-events-none hidden peer-checked:block"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         aria-hidden
       >
         <polyline points="20,6 9,17 4,12" />
@@ -202,10 +210,23 @@ function Checkmark(props: { completed: boolean; setCompleted: () => void }) {
   );
 }
 
-function Button(props: { children: any; onClick: () => void }) {
+function Button(props: {
+  children: any;
+  selected?: boolean;
+  onClick: () => void;
+}) {
+  const selectedStates = {
+    unselected:
+      'bg-gray-700 border-2 border-gray-500 rounded-lg text-white hover:border-gray-400 hover:text-gray-800 hover:bg-gray-300',
+    selected:
+      'bg-gray-400 border-2 border-gray-300 rounded-lg text-gray-800 hover:border-gray-600 hover:text-white hover:bg-gray-500',
+  };
+
   return (
     <button
-      className="group bg-gray-600 border-2 border-gray-500 rounded-lg text-white text-sm p-[2px] hover:border-gray-400 hover:text-gray-800 hover:bg-gray-300"
+      className={`group text-sm border-2 rounded-lg flex-grow ${
+        props.selected ? selectedStates.selected : selectedStates.unselected
+      }`}
       onClick={(_) => props.onClick()}
     >
       {props.children}
@@ -266,12 +287,13 @@ function TodoItem(props: {
   const [editting, setEditting] = useState<boolean>(false);
 
   return (
-    <div className="flex gap-[5px] h-[50px] flex-grow">
+    <div className="flex gap-[5px] h-[60px] flex-grow">
       <div
         className="flex justify-between items-center flex-grow rounded-lg border-2 border-gray-600 bg-gray-700 hover:border-gray-500 transition-all ease-in-out"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onDoubleClick={() => setEditting(true)}
+        onBlur={() => setEditting(false)}
       >
         {editting ? (
           <InputBox
@@ -316,29 +338,35 @@ function TodoItemControl(props: {
   return (
     <div className="flex gap-[1px] p-2.5">
       <Button onClick={() => props.removeItem(props.todo)}>
-        <span className="text-center text-white group-hover:text-gray-800">
+        <span className="px-1.5 py-1 text-center text-white group-hover:text-gray-800">
           X
         </span>
       </Button>
       <div className="flex flex-col gap-[1px] justify-center">
         {props.i - 1 >= 0 ? (
-          <Button onClick={() => props.shiftItem(props.todo, Shift.Up)}>
-            <svg
-              className="w-4 h-2 fill-none stroke-white group-hover:stroke-gray-800 stroke-2 pointer-events-none"
-              aria-hidden
-            >
-              <polyline points="2,6 8,2 14,6" />
-            </svg>
+          <Button onClick={() => props.shiftItem(props.todo, SHIFT.UP)}>
+            <div className="p-1">
+              <svg
+                className="w-4 h-2 fill-none stroke-white group-hover:stroke-gray-800 stroke-2 pointer-events-none"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <polyline points="2,6 8,2 14,6" />
+              </svg>
+            </div>
           </Button>
         ) : null}
         {props.i + 1 < props.length ? (
-          <Button onClick={() => props.shiftItem(props.todo, Shift.Down)}>
-            <svg
-              className="w-4 h-2 fill-none stroke-white group-hover:stroke-gray-800 stroke-2 pointer-events-none"
-              aria-hidden
-            >
-              <polyline points="2,2 8,6 14,2" />
-            </svg>
+          <Button onClick={() => props.shiftItem(props.todo, SHIFT.DOWN)}>
+            <div className="p-1">
+              <svg
+                className="w-4 h-2 fill-none stroke-white group-hover:stroke-gray-800 stroke-2 pointer-events-none"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <polyline points="2,2 8,6 14,2" />
+              </svg>
+            </div>
           </Button>
         ) : null}
       </div>
@@ -348,6 +376,7 @@ function TodoItemControl(props: {
 
 function TodoSummary(props: {
   children: Todo[];
+  currentFilter: Filter;
   clearCompleted: () => void;
   setFilter: (f: Filter) => void;
 }) {
@@ -362,13 +391,31 @@ function TodoSummary(props: {
         style={{ display: 'flex', flexFlow: 'row nowrap', gap: 5 }}
         className="flex gap-[5px]"
       >
-        <Button onClick={() => props.setFilter(Filter.All)}>All</Button>
-        <Button onClick={() => props.setFilter(Filter.Active)}>Active</Button>
-        <Button onClick={() => props.setFilter(Filter.Completed)}>
-          Completed
+        <Button
+          onClick={() => props.setFilter(FILTER.ALL)}
+          selected={props.currentFilter === FILTER.ALL}
+        >
+          <div className="p-2.5">All</div>
+        </Button>
+        <Button
+          onClick={() => props.setFilter(FILTER.ACTIVE)}
+          selected={props.currentFilter === FILTER.ACTIVE}
+        >
+          <div className="p-2.5">Active</div>
+        </Button>
+
+        <Button
+          onClick={() => props.setFilter(FILTER.COMPLETED)}
+          selected={props.currentFilter === FILTER.COMPLETED}
+        >
+          <div className="p-2.5">Completed</div>
         </Button>
       </div>
-      <Button onClick={() => props.clearCompleted()}>Clear Completed</Button>
+      <div>
+        <Button onClick={() => props.clearCompleted()}>
+          <div className="p-2.5">Clear Completed</div>
+        </Button>
+      </div>
     </div>
   );
 }
